@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+
+    <style type="text/css">
+
+        body { 
+            background-color: #000;
+            text-align: center;
+        }
+
+        #test {
+            background: url("");
+            background-repeat: repeat;
+            width: 100%;
+            height: 1000px;
+            border: 1px solid #000;
+            color: #fff;
+        }
+
+    </style>
+
+    <title>JG.Bitmap Demo</title>
+</head>
+
+<body>
+
+    <div id="test">
+        <h1>Test</h1>
+    </div>
+
+
+    <script type="text/javascript" src="./JG.Bitmap.js"></script>
+    <script type="text/javascript" src="./BitmapGraphics.js"></script>
+
+    <script type='text/javascript'>
+
+        // SETTINGS /////////////////////////////
+
+        ////////////////////////////////////////
+
+        let pause = false;
+        let testDiv = undefined;
+        let lastRun = 0;
+        let highest = 0;
+        let changeR = 1;
+        let changeG = 2;
+        let changeB = 3;
+
+        var colorR = 0,
+            colorG = 150,
+            colorB = 150;
+
+        function init() {
+
+            testDiv = 
+                document
+                .getElementById(
+                    "test");
+
+            requestAnimationFrame(update);
+        }
+
+        function calcTiming() {
+
+            if (lastRun == 0)
+                lastRun = new Date();
+
+            let timeTaken = (lastRun - new Date());
+
+            if (timeTaken < highest) 
+                highest = timeTaken;
+            
+                lastRun = new Date();
+        }
+
+        function update() {
+
+            calcTiming();
+            
+            if (pause == true) return;
+
+            colorR += changeR;
+
+            if (colorR > 255 || colorR < 0) 
+                changeR *= -1;
+
+            colorG += changeG;
+
+            if (colorG > 255 || colorG < 0) 
+                changeG *= -1;
+
+            colorB += changeB;
+
+            if (colorB > 255 || colorB < 0) 
+                changeB *= -1;
+
+            JG
+            .Bitmap
+            .UpdateColorPallete(
+                1, 
+                "rgb(" + Math.floor(colorR) + "," + colorG + "," + colorB + ")" );
+
+            let imageUrl = 
+                JG
+                .Bitmap
+                .RenderToImageUrl(
+                    BitmapGraphics.TEST_GRID,
+                    BitmapGraphics.SPRITE_WIDTH,
+                    BitmapGraphics.SPRITE_HEIGHT,
+                    (colorR / 40) + 1 );
+                    
+            testDiv
+            .style[
+                "background"] = 
+                "url(" + imageUrl + ")";
+
+            requestAnimationFrame(update);
+        }
+
+        window.onload = init;
+
+    </script>
+</body>
+
+</html>
