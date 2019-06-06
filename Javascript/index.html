@@ -31,8 +31,8 @@
     </div>
 
 
-    <script type="text/javascript" src="./JG.Bitmap.js"></script>
-    <script type="text/javascript" src="./BitmapGraphics.js"></script>
+    <script type="text/javascript" src="./Scripts/JGBitmap.js"></script>
+    <script type="text/javascript" src="./Scripts/BitmapGraphics.js"></script>
 
     <script type='text/javascript'>
 
@@ -96,15 +96,13 @@
             if (colorB > 255 || colorB < 0) 
                 changeB *= -1;
 
-            JG
-            .Bitmap
+            JGBitmap
             .UpdateColorPallete(
                 1, 
                 "rgb(" + Math.floor(colorR) + "," + colorG + "," + colorB + ")" );
 
             let imageUrl = 
-                JG
-                .Bitmap
+                JGBitmap
                 .RenderToImageUrl(
                     BitmapGraphics.TEST_GRID,
                     BitmapGraphics.SPRITE_WIDTH,

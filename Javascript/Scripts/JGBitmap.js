@@ -1,7 +1,4 @@
-if (!window.JG)
-    JG = {};
-
-JG.Bitmap =
+JGBitmap =
     (function () {
 
         let colorPallete = [
