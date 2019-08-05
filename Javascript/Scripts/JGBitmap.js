@@ -1,7 +1,7 @@
 JGBitmap =
     (function () {
 
-        let colorPallete = [
+        let colorPalette = [
             "rgba(0,0,0,0)", // clear
             "#fff", // white
             "#000", // black
@@ -14,15 +14,17 @@ JGBitmap =
         let lastDrawingContext = null;
         let lastDrawingContextWidth = 0;
         let lastDrawingContextHeight = 0;
+        let spriteCache = {};
+        let graphicCache = {};
 
-        function ReplaceColorPallete(newColorPallete) {
+        function ReplaceColorPalette(newColorPalette) {
 
-            colorPallete = newColorPallete;
+            colorPalette = newColorPalette;
         }
 
-        function UpdateColorPallete(palletePosition, color) {
+        function UpdateColorPalette(palettePosition, color) {
 
-            colorPallete[palletePosition] = color;
+            colorPalette[palettePosition] = color;
         }
 
         function getCanvasAndCTX(width, height, scale) {
@@ -53,6 +55,31 @@ JGBitmap =
             return lastDrawingContext;
         }
 
+        function RegisterSprite(spriteName, bitmapCode) {
+
+            spriteCache[spriteName] = bitmapCode;
+        }
+
+        function RenderSprite(spriteName, width, height, scale) {
+
+            var cacheRef = spriteName + "_" + width + "_" + height + "_" + scale;
+
+            if (!graphicCache[cacheRef])
+                graphicCache[cacheRef] =
+                    RenderToCanvas(
+                        spriteCache[spriteName],
+                        width,
+                        height,
+                        scale);
+
+            return graphicCache[cacheRef];
+        }
+
+        function RenderSpriteToImageUrl(bitmapCode, width, height, scale) {
+
+            return RenderSprite(bitmapCode, width, height, scale).toDataURL();
+        }
+
         function RenderToCanvas(bitmapCode, width, height, scale) {
 
             let drawingContexts =
@@ -61,59 +88,53 @@ JGBitmap =
                     height,
                     scale);
 
-            let i = 0,
+            let index = 0,
                 u = 0,
                 widthAccumulator = 1;
 
-            while (i < bitmapCode.length) {
+            while (index < bitmapCode.length) {
 
-                let t =
-                    bitmapCode
-                        .substr(
-                            i,
-                            1);
-
-                r = (t.charCodeAt(0) - 65);
+                let t = bitmapCode.substr(index, 1);
+                repeats = (t.charCodeAt(0) - 65);
 
                 do {
 
-                    color =
-                        colorPallete[
-                        parseInt(t)];
+                    // NOTE: ~~ or 'double not' operator is used as a faster substitution for Math.floor!
 
-                    drawingContexts
-                        .ctx
-                        .fillStyle =
-                        color;
+                    if (t.charCodeAt(0) < 65) {
 
-                    x = (i + u) - (~~((i + u) / width) * width);
-                    y = ~~((i + u) / height);
-                    u++;
-                    nextY = (~~((i + u) / height));
-                    r--;
+                        color = colorPalette[parseInt(t)];
+                        drawingContexts.ctx.fillStyle = color;
+                    }
 
-                    if (y == nextY && r > 0) { // do i need this r > 0?
+                    x = (index + u) - (~~((index + u) / width) * width);
+                    y = ~~((index + u) / height);
+                    u ++;
+                    nextY = (~~((index + u) / height));
+                    repeats --;
 
-                        widthAccumulator++;
+                    if (y == nextY && repeats > 0) {
+
+                        widthAccumulator ++;
 
                     } else {
 
                         if (color != "rgba(0,0,0,0)")
                             drawingContexts
-                                .ctx
-                                .fillRect(
-                                    x * scale,
-                                    y * scale,
-                                    scale - (scale * (widthAccumulator + 1)) - (scale > 1 ? 1 : 0),
-                                    scale + (scale > 1 ? 1 : 0));
+                            .ctx
+                            .fillRect(
+                                x * scale,
+                                y * scale,
+                                ((scale * (widthAccumulator + 1))) - scale,
+                                scale);
 
                         widthAccumulator = 1;
                     }
 
-                } while (r > 0);
+                } while (repeats > 0);
 
-                u--;
-                i++;
+                u --;
+                index ++;
             }
 
             return drawingContexts.canvas;
@@ -127,7 +148,10 @@ JGBitmap =
         return {
             RenderToCanvas: RenderToCanvas,
             RenderToImageUrl: RenderToImageUrl,
-            UpdateColorPallete: UpdateColorPallete,
-            ReplaceColorPallete: ReplaceColorPallete
+            UpdateColorPalette: UpdateColorPalette,
+            ReplaceColorPalette: ReplaceColorPalette,
+            RegisterSprite: RegisterSprite,
+            RenderSprite: RenderSprite,
+            RenderSpriteToImageUrl: RenderSpriteToImageUrl
         }
     })();

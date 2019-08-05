@@ -27,9 +27,8 @@
 <body>
 
     <div id="test">
-        <h1>Test</h1>
+        <h1 id="time"></h1>
     </div>
-
 
     <script type="text/javascript" src="./Scripts/JGBitmap.js"></script>
     <script type="text/javascript" src="./Scripts/BitmapGraphics.js"></script>
@@ -37,6 +36,8 @@
     <script type='text/javascript'>
 
         // SETTINGS /////////////////////////////
+
+        USE_SPRITES = true;
 
         ////////////////////////////////////////
 
@@ -54,11 +55,12 @@
 
         function init() {
 
-            testDiv = 
-                document
-                .getElementById(
-                    "test");
+            testDiv = document.getElementById("test");
+            timeOutput = document.getElementById("time");
 
+            if (USE_SPRITES)
+                JGBitmap.RegisterSprite("test", BitmapGraphics.TEST_GRID);
+    
             requestAnimationFrame(update);
         }
 
@@ -71,8 +73,9 @@
 
             if (timeTaken < highest) 
                 highest = timeTaken;
-            
-                lastRun = new Date();
+                
+            timeOutput.innerHTML = ~~(1000 / (timeTaken * -1)) + " FPS";            
+            lastRun = new Date();
         }
 
         function update() {
@@ -96,21 +99,36 @@
             if (colorB > 255 || colorB < 0) 
                 changeB *= -1;
 
-            JGBitmap
-            .UpdateColorPallete(
+            JGBitmap.UpdateColorPalette(
                 1, 
-                "rgb(" + Math.floor(colorR) + "," + colorG + "," + colorB + ")" );
+                "rgb(" + 
+                    Math.floor(colorR) + "," + 
+                    colorG + "," + 
+                    colorB + ")" );
 
-            let imageUrl = 
-                JGBitmap
-                .RenderToImageUrl(
-                    BitmapGraphics.TEST_GRID,
-                    BitmapGraphics.SPRITE_WIDTH,
-                    BitmapGraphics.SPRITE_HEIGHT,
-                    (colorR / 40) + 1 );
+            let imageUrl = undefined;
+
+            if (USE_SPRITES) {
+
+                imageUrl =
+                    JGBitmap.RenderSpriteToImageUrl(
+                        "test",
+                        BitmapGraphics.SPRITE_WIDTH,
+                        BitmapGraphics.SPRITE_HEIGHT,
+                        (colorR / 10) + 1);
+            
+            } else {
+
+                imageUrl = 
+                    JGBitmap
+                    .RenderToImageUrl(
+                        BitmapGraphics.TEST_GRID,
+                        BitmapGraphics.SPRITE_WIDTH,
+                        BitmapGraphics.SPRITE_HEIGHT,
+                        (colorR / 40) + 1 );
+            }
                     
-            testDiv
-            .style[
+            testDiv.style[
                 "background"] = 
                 "url(" + imageUrl + ")";
 
