@@ -1,6 +1,9 @@
 JGBitmap =
     (function () {
 
+        let REPETITION_CHAR_BEGIN = 65;
+        let REPETITION_CHAR_MAX = 25;
+
         let colorPalette = [
             "rgba(0,0,0,0)", // clear
             "#fff", // white
@@ -95,13 +98,13 @@ JGBitmap =
             while (index < bitmapCode.length) {
 
                 let t = bitmapCode.substr(index, 1);
-                repeats = (t.charCodeAt(0) - 65);
+                repeats = (t.charCodeAt(0) - REPETITION_CHAR_BEGIN);
 
                 do {
 
                     // NOTE: ~~ or 'double not' operator is used as a faster substitution for Math.floor!
 
-                    if (t.charCodeAt(0) < 65) {
+                    if (t.charCodeAt(0) < REPETITION_CHAR_BEGIN) {
 
                         color = colorPalette[parseInt(t)];
                         drawingContexts.ctx.fillStyle = color;

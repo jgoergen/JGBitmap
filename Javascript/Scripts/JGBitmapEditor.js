@@ -1,0 +1,6 @@
+JGBitmapEditor =
+    (function () {
+
+        return {
+        };
+    })();

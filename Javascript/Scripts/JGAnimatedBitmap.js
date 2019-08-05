@@ -1,0 +1,6 @@
+JGAnimatedBitmap =
+    (function () {
+
+        return {
+        };
+    })();

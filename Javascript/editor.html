@@ -1,0 +1,416 @@
+<html>
+    <head>
+        <title></title>
+    </head>
+
+    <body>
+        
+        <div>
+            <div>
+                Editing frame <span id="curFrame">1</span> of <span id="totalFrames">1</span><br>
+                <canvas id="canvas" width="320" height="320" style="border: #000 solid 1px;"></canvas>
+                <canvas id="canvas2" width="128" height="128" style="border: #000 solid 1px;"></canvas>
+                <canvas id="canvas3" width="64" height="64" style="border: #000 solid 1px;"></canvas>
+                <div style="display: inline;" id="animation"></div>
+                <input type="button" value="-" id="speedDown" style="position: relative; top: -11px;">
+                <input type="button" value="+" id="speedUp" style="position: relative; top: -11px; left: -3px"><br /><br />
+                        
+                <b>Color Palette</b> ( Double click to edit color. )<br />
+                <canvas id="palette" width="500" height="40" style="border: #000 solid 1px;"></canvas><br /><br />
+                        
+                <b>Multiframe:</b><br>
+                <input type="button" id="prevButton" value="Previous Frame" /><input type="button" id="nextButton" value="Next Frame" /><input type="button" id="copyButton" value="Copy Frame" /><input type="button" id="pasteButton" value="Paste Frame" /><br />        
+                <div id="frames"></div><br />
+                        
+                <b>Save:</b><br>
+                Frame As:<input type="button" id="savePNG" value="PNG" /><input type="button" id="saveJPEG" value="JPEG" /><input type="button" id="saveBMP" value="BMP" /><br />
+                SpriteSheet As:<input type="button" id="savePNGSheet" value="PNG" /><input type="button" id="saveJPEGSheet" value="JPEG" /><input type="button" id="saveBMPSheet" value="BMP" /><br>
+                Animation As:<input type="button" id="saveAnimation" value="GIF" /><br /><br />
+                        
+                <b>Encoded Image String:</b><br />
+                <textarea id="encoding" style="width: 500px; height: 80px;"></textarea>
+            </div>
+        </div>
+
+        <script type='text/javascript' src='http://code.jquery.com/jquery-1.8.0.js'></script>
+        <script type='text/javascript' src='Scripts/3rdParty/canvas2image.js'></script>
+        <script type='text/javascript' src='Scripts/3rdParty/base64.js'></script>
+        <script type='text/javascript' src='Scripts/3rdParty/LZWEncoder.js'></script>
+        <script type='text/javascript' src='Scripts/3rdParty/NeuQuant.js'></script>
+        <script type='text/javascript' src='Scripts/3rdParty/GIFEncoder.js'></script>
+        <script type='text/javascript' src='Scripts/port/Sprite.js'></script>
+        <script type='text/javascript' src='Scripts/port/utility.js'></script>
+
+        <script type="text/javascript">
+            var canvas = null;
+            var ctx = null;
+            var ctx2 = null;
+            var ctx3 = null;
+            var paletteCTX = null;
+            var sprite = new Sprite(16, 16);
+            var currentPaletteSlot = 1;
+            var curFrame = 0;
+            var totalFrames = 1;
+            var mouseDown = false;
+            var copyFrameSpace = null;
+            var animationFrame = 0;
+            var animationTimeoutId = 0;
+            var animationSpeed = 100;
+
+            $(window).load(function () {
+
+                canvas = document.getElementById('canvas');
+                ctx = canvas.getContext('2d');
+
+                ctx2 = document.getElementById('canvas2').getContext('2d');
+                ctx3 = document.getElementById('canvas3').getContext('2d');
+                paletteCTX = document.getElementById('palette').getContext('2d');
+
+                // fill pixel array with empty pixels
+                for (var u = 0; u < 256; u++)
+                    sprite.rawPixelArray[curFrame].push("0");
+
+                // check for sprite code in url.
+                var spriteCode = getParameterByName("spriteCode");
+
+                if (spriteCode != "" && spriteCode != null && spriteCode != undefined)
+                    sprite.fromString(spriteCode);
+
+                totalFrames = sprite.rawPixelArray.length;
+                drawMainSprite();
+
+                $("#canvas").mousedown(doMouseDown);
+                $("#canvas").mousemove(doMouseDrag);
+                $(document).mouseup(function () { mouseDown = false; });
+                $(document).keypress(doPress);
+                $("#palette").mouseup(chooseColor);
+                $("#palette").dblclick(changeColorSlot);
+                $("#prevButton").click(previousFrame);
+                $("#nextButton").click(nextFrame);
+                $("#copyButton").click(copyFrame);
+                $("#pasteButton").click(pasteFrame);
+                $("#savePNG").click(function () { Canvas2Image.saveAsPNG(sprite.getFrameAsImage(curFrame, parseInt(prompt("what scale?", "1")))); });
+                $("#saveJPEG").click(function () { Canvas2Image.saveAsJPEG(sprite.getFrameAsImage(curFrame, parseInt(prompt("what scale?", "1")))); });
+                $("#saveBMP").click(function () { Canvas2Image.saveAsBMP(sprite.getFrameAsImage(curFrame, parseInt(prompt("what scale?", "1")))); });
+                $("#savePNGSheet").click(function () { saveSheet("PNG", parseInt(prompt("what scale?", "1"))); });
+                $("#saveJPEGSheet").click(function () { saveSheet("JPEG", parseInt(prompt("what scale?", "1"))); });
+                $("#saveBMPSheet").click(function () { saveSheet("BMP", parseInt(prompt("what scale?", "1"))); });
+                $("#saveAnimation").click(saveAnimation);
+                $("#frames").on("click", ".frame", focusFrame);
+                $("#speedDown").click(function () { animationSpeed -= 10; });
+                $("#speedUp").click(function () { animationSpeed += 10; });
+                $("#encoding").blur(function() {
+
+                    var spriteCode = $(this).val();
+
+                    if (spriteCode != "" && spriteCode != null && spriteCode != undefined)
+                        sprite.fromString(spriteCode);
+
+                    totalFrames = sprite.rawPixelArray.length;
+                    drawMainSprite();
+
+                });
+
+                updateDisplay();
+            });
+
+            function saveAnimation() {
+
+                var encoder = new GIFEncoder();
+                encoder.setRepeat(0); //0 -> loop forever //1+ -> loop n times then stop 
+                encoder.setDelay(500); //go to next frame every n milliseconds
+                encoder.start();
+
+                for (var i = 0; i < $("#animation .animationFrame").length; i++) {
+
+                    var canvas = document.getElementById("animationFrame" + i);
+                    console.log(typeof canvas);
+                    var ctx = canvas.getContext("2d");
+                    encoder.addFrame(ctx);
+                }
+
+                encoder.finish();
+
+                var binary_gif = encoder.stream().getData(); //notice this is different from the as3gif package! 
+                var data_url = 'data:image/gif;base64,' + btoa(binary_gif);
+
+                var win = window.open();
+                win.document.write('<img src="' + data_url + '"/>');
+            }
+
+            function saveSheet(whatKind, whatScale) {
+
+                sheetCanvas = document.createElement('canvas');
+                sheetCanvas.width = (sprite.width * whatScale) * sprite.rawPixelArray.length;
+                sheetCanvas.height = (sprite.height * whatScale);
+                sheetCTX = sheetCanvas.getContext('2d');
+
+                for (var i = 0; i < sprite.rawPixelArray.length; i++)
+                    sheetCTX.drawImage(sprite.getFrameAsImage(i, whatScale), i * (sprite.width * whatScale), 0);
+
+                switch (whatKind) {
+                    case "PNG":
+                        Canvas2Image.saveAsPNG(sheetCanvas);
+                        break;
+
+                    case "JPEG":
+                        Canvas2Image.saveAsJPEG(sheetCanvas);
+                        break;
+
+                    case "BMP":
+                        Canvas2Image.saveAsBMP(sheetCanvas);
+                        break;
+                }
+            }
+
+            function drawColorPalette() {
+
+                paletteCTX.fillStyle = "rgba(200, 200, 200, 1)";
+                paletteCTX.fillRect(0, 0, 516, 60);
+
+                // draw palette colors
+                for (var i = 0; i < sprite.colorPalette.length; i++) {
+                    var y = Math.floor(i / 25) * 20;
+                    var x = Math.floor(i - (y * 25)) * 20;
+
+                    paletteCTX.fillStyle = sprite.colorPalette[i];
+
+                    if (i == currentPaletteSlot) {
+                        paletteCTX.fillRect(x + 5, y + 5, 10, 10);
+                    } else {
+                        paletteCTX.fillRect(x, y, 20, 20);
+                    }
+                }
+
+                // draw grid
+                for (var i = 0; i <= 40; i += 20) {
+                    paletteCTX.beginPath();
+                    paletteCTX.moveTo(0, i);
+                    paletteCTX.lineTo(516, i);
+                    paletteCTX.stroke();
+                }
+
+                for (var o = 0; o <= 516; o += 20) {
+                    paletteCTX.beginPath();
+                    paletteCTX.moveTo(o, 0);
+                    paletteCTX.lineTo(o, 40);
+                    paletteCTX.stroke();
+                }
+            }
+
+            function changeColor(whatPaletteSlot) {
+
+                if (whatPaletteSlot > 35)
+                    return;
+
+                currentPaletteSlot = whatPaletteSlot;
+
+                drawColorPalette()
+            }
+
+            function changeColorSlot(e) {
+
+                var x = Math.floor(((e.pageX - this.offsetLeft) - $("#palette").parent("div").offset().left) / 20);
+                var y = Math.floor(((e.pageY - this.offsetTop) - $("#palette").parent("div").offset().top) / 20);
+                var slot = (x + (y * 25));
+
+                if (slot > 35)
+                    return;
+
+                var newColor = prompt("New color value? ( any valid css color works. i.e. '#fff' or 'rgba(255,255,255,1)' )");
+
+                if (newColor != "" && newColor != null && newColor != undefined && typeof newColor != "undefined") {
+                    sprite.colorPalette[slot] = newColor;
+                    updateDisplay();
+                }
+            }
+
+            function chooseColor(e) {
+
+                var x = Math.floor(((e.pageX - this.offsetLeft) - $("#palette").parent("div").offset().left) / 20);
+                var y = Math.floor(((e.pageY - this.offsetTop) - $("#palette").parent("div").offset().top) / 20);
+                var slot = (x + (y * 25));
+
+                changeColor(slot);
+            }
+
+            function drawMainSprite() {
+
+                ctx.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx.fillRect(0, 0, 320, 320);
+
+                ctx.drawImage(sprite.getFrameAsImage(curFrame, 20), 0, 0);
+
+                $("#encoding").val(sprite.getCode());
+
+                // draw grid
+                for (var i = 0; i <= 16; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, (i * 20));
+                    ctx.lineTo(320, (i * 20));
+                    ctx.stroke();
+                }
+
+                for (var o = 0; o <= 16; o++) {
+                    ctx.beginPath();
+                    ctx.moveTo((o * 20), 0);
+                    ctx.lineTo((o * 20), 320);
+                    ctx.stroke();
+                }
+            }
+
+            function drawFrames() {
+
+                $("#frames").empty();
+                $("#animation").empty();
+
+                for (var i = 0; i < sprite.rawPixelArray.length; i++) {
+
+                    $("#frames").append("<canvas class=\"frame\" id=\"frame" + i + "\" width=\"64\" height=\"64\" style=\"border: #000 solid " + (curFrame == i ? "3" : "1") + "px; margin: " + (curFrame == i ? "2" : "4") + "px;\"></canvas>");
+                    $("#animation").append("<canvas class=\"animationFrame\" id=\"animationFrame" + i + "\" width=\"32\" height=\"32\" style=\"border: 1px #000 solid; display:none;\"></canvas>");
+                }
+
+                for (var i = 0; i < sprite.rawPixelArray.length; i++) {
+
+                    var ctx = document.getElementById("frame" + i).getContext('2d');
+                    ctx.drawImage(sprite.getFrameAsImage(i, 4), 0, 0);
+
+                    var ctx2 = document.getElementById("animationFrame" + i).getContext('2d');
+                    ctx2.drawImage(sprite.getFrameAsImage(i, 2), 0, 0);
+                }
+            }
+
+            function focusFrame() {
+
+                var frameId = parseFloat($(this).attr("id").replace(/frame/ig, ""));
+                curFrame = frameId;
+                updateDisplay();
+            }
+
+            function resetAnimation() {
+
+                clearTimeout(animationTimeoutId);
+                animationFrame = -1;
+                if ($("#animation .animationFrame").length > 0)
+                    animationTimeoutId = setTimeout(animate, animationSpeed);
+            }
+
+            function animate() {
+
+                if (animationFrame != -1)
+                    $("#animation .animationFrame:nth-child(" + animationFrame + ")").hide();
+
+                animationFrame++;
+                if (animationFrame > $("#animation .animationFrame").length)
+                    animationFrame = 1;
+
+                $("#animation .animationFrame:nth-child(" + animationFrame + ")").show();
+
+                animationTimeoutId = setTimeout(animate, animationSpeed);
+            }
+
+            function copyFrame() {
+                copyFrameSpace = sprite.rawPixelArray[curFrame].slice();
+            }
+
+            function pasteFrame() {
+                if (confirm("Are you sure you want to paste over this frame?")) {
+                    if (copyFrameSpace == null)
+                        return;
+
+                    sprite.rawPixelArray[curFrame] = copyFrameSpace.slice();
+                    updateDisplay();
+                }
+            }
+
+            function previousFrame() {
+                if (curFrame > 0)
+                    curFrame--;
+
+                updateDisplay();
+            }
+
+            function nextFrame() {
+                curFrame++;
+
+                if (curFrame >= totalFrames) {
+                    sprite.rawPixelArray.push(new Array());
+
+                    for (var u = 0; u < 256; u++)
+                        sprite.rawPixelArray[curFrame].push("0");
+
+                    totalFrames++;
+                }
+
+                updateDisplay();
+            }
+
+            function doPress(e) {
+
+                if (e.which > 48 && e.which < 58) {
+                    changeColor(e.which - 48);
+                } else if (e.which > 96 && e.which < 123) {
+                    changeColor(e.which - 87);
+                } else if (e.which == 91) {
+                    previousFrame();
+                } else if (e.which == 93) {
+                    nextFrame();
+                } else {
+                    changeColor(0);
+                }
+            }
+
+            function doMouseDown(e) {
+
+                mouseDown = true;
+                doMouseDrag(e, { left: this.offsetLeft, top: this.offsetTop });
+            }
+
+            function doMouseDrag(e, offsets) {
+
+                if (!mouseDown)
+                    return;
+
+                var x = Math.floor((e.pageX - (offsets == null ? this.offsetLeft : offsets.left) - $("#canvas").parent("div").offset().left) / 20);
+                var y = Math.floor((e.pageY - (offsets == null ? this.offsetTop : offsets.top) - $("#canvas").parent("div").offset().top) / 20);
+
+                if (x > 15 || y > 15)
+                    return;
+
+                ctx.fillStyle = sprite.colorPalette[currentPaletteSlot];
+                ctx.fillRect((x * 20), (y * 20), 20, 20);
+
+                sprite.rawPixelArray[curFrame][(y * 16) + x] = currentPaletteSlot.toString();
+                //console.log("setting " + x + ", " + y + " (" + ((y * 16) + x) + ") to " + currentPaletteSlot.toString() + " (" + sprite.colorPalette[currentPaletteSlot] + ")");
+
+                updateDisplay();
+            }
+
+            function updateDisplay() {
+
+                drawMainSprite();
+                drawColorPalette();
+                drawFrames();
+
+                var smallImage = sprite.getFrameAsImage(curFrame, 2);
+
+                ctx2.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx2.fillRect(0, 0, 32 * 8, 32 * 8);
+
+                for (var i = 0; i < 8; i++)
+                    for (var o = 0; o < 8; o++)
+                        ctx2.drawImage(smallImage, 32 * i, 32 * o);
+
+                ctx3.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx3.fillRect(0, 0, 320, 320);
+                ctx3.drawImage(sprite.getFrameAsImage(curFrame, 4), 0, 0);
+
+                $("#curFrame").html(curFrame + 1);
+                $("#totalFrames").html(totalFrames);
+
+                resetAnimation();
+            }
+        </script>
+
+    </body>
+</html>
